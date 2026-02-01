@@ -3,10 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <meta name="google-site-verification" content="24284413893062c" />
-    
-    <title>Orbitera</title>
+    <title>Split Layout</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;700&family=Impact&family=Lexend:wght@400;700&family=Merriweather:wght@400;700&family=Caveat:wght@400;700&display=swap" rel="stylesheet">
@@ -179,6 +176,64 @@
             font-size: 14px;
         }
 
+        .toggle-outline-button {
+            background-color: white;
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 18px;
+            font-weight: bold;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .toggle-outline-button:hover {
+            background-color: #f0f0f0;
+        }
+
+        .outline-controls {
+            display: none;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .outline-controls.visible {
+            display: flex;
+        }
+
+        .toggle-outline-button {
+            background-color: white;
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 18px;
+            font-weight: bold;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .toggle-outline-button:hover {
+            background-color: #f0f0f0;
+        }
+
+        .outline-controls {
+            display: none;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .outline-controls.visible {
+            display: flex;
+        }
+
         .draggable-text {
             position: absolute;
             padding: 5px 10px;
@@ -189,9 +244,9 @@
             color: #000000;
             display: inline-block;
             font-weight: bold;
+            font-family: Arial;
             width: fit-content;
             max-width: 100%;
-            font-family: Arial;
         }
 
         .draggable-text.selected {
@@ -297,6 +352,15 @@
                 <option value="Merriweather">Merriweather</option>
                 <option value="Caveat">Caveat</option>
             </select>
+            
+            <button class="toggle-outline-button" id="toggleOutlineButton" onclick="toggleOutline()">O</button>
+            
+            <div class="outline-controls" id="outlineControls">
+                <button class="color-picker-button" onclick="openOutlineColorPicker()">
+                    <div class="color-circle" id="outlineColorCircle" style="background-color: #000000;"></div>
+                </button>
+                <input type="color" class="color-input" id="outlineColorInput" value="#000000">
+            </div>
         </div>
     </div>
     <div class="right-section" id="rightSection">
@@ -370,9 +434,6 @@
             // Remove any existing color
             selectedTextBox.style.color = '';
             
-            // Reset width to auto so gradient fits text
-            selectedTextBox.style.width = 'auto';
-            
             // Set gradient background
             if (gradientType === 'linear') {
                 selectedTextBox.style.background = `linear-gradient(90deg, ${color1}, ${color2})`;
@@ -423,6 +484,77 @@
             selectedTextBox.dataset.fontFamily = fontFamily;
             
             updateHTMLCode();
+        }
+
+        let outlineEnabled = false;
+
+        function toggleOutline() {
+            const toggleButton = document.getElementById('toggleOutlineButton');
+            const outlineControls = document.getElementById('outlineControls');
+            
+            outlineEnabled = !outlineEnabled;
+            
+            if (outlineEnabled) {
+                toggleButton.textContent = '-';
+                outlineControls.classList.add('visible');
+                if (selectedTextBox) {
+                    applyOutline();
+                }
+            } else {
+                toggleButton.textContent = 'O';
+                outlineControls.classList.remove('visible');
+                if (selectedTextBox) {
+                    removeOutline();
+                }
+            }
+        }
+
+        function applyOutline() {
+            if (!selectedTextBox) return;
+            
+            const outlineColor = document.getElementById('outlineColorInput').value;
+            
+            selectedTextBox.dataset.outlineEnabled = 'true';
+            selectedTextBox.dataset.outlineColor = outlineColor;
+            
+            selectedTextBox.style.webkitTextStroke = `2px ${outlineColor}`;
+            
+            updateHTMLCode();
+        }
+
+        function removeOutline() {
+            if (!selectedTextBox) return;
+            
+            selectedTextBox.dataset.outlineEnabled = 'false';
+            selectedTextBox.style.webkitTextStroke = '';
+            
+            updateHTMLCode();
+        }
+
+        function openOutlineColorPicker() {
+            const outlineColorInput = document.getElementById('outlineColorInput');
+            outlineColorInput.click();
+        }
+
+        // Listen for outline color changes
+        document.getElementById('outlineColorInput').addEventListener('input', function(e) {
+            const newColor = e.target.value;
+            if (selectedTextBox && outlineEnabled && selectedTextBox.dataset.outlineEnabled === 'true') {
+                selectedTextBox.dataset.outlineColor = newColor;
+                selectedTextBox.style.webkitTextStroke = `2px ${newColor}`;
+                updateOutlineColorCircle();
+                updateHTMLCode();
+            }
+        });
+
+        function updateOutlineColorCircle() {
+            const outlineColorCircle = document.getElementById('outlineColorCircle');
+            if (selectedTextBox && selectedTextBox.dataset.outlineEnabled === 'true') {
+                const outlineColor = selectedTextBox.dataset.outlineColor || '#000000';
+                outlineColorCircle.style.backgroundColor = outlineColor;
+            } else {
+                outlineColorCircle.style.backgroundColor = '#000000';
+            }
         }
 
         function openColorPicker() {
@@ -521,6 +653,7 @@
                 const webkitBgClipMatch = styles.match(/-webkit-background-clip:\s*text/);
                 const webkitTextFillMatch = styles.match(/-webkit-text-fill-color:\s*transparent/);
                 const fontFamilyMatch = styles.match(/font-family:\s*([^;]+);/);
+                const outlineMatch = styles.match(/-webkit-text-stroke:\s*2px\s*([^;]+);/);
                 
                 let textBox;
                 if (existingTextBoxes[index]) {
@@ -537,6 +670,8 @@
                     textBox.dataset.gradientColor2 = '#ff0000';
                     textBox.dataset.gradientType = 'linear';
                     textBox.dataset.fontFamily = 'Arial';
+                    textBox.dataset.outlineEnabled = 'false';
+                    textBox.dataset.outlineColor = '#000000';
                     
                     // Add resize handles
                     const handles = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
@@ -568,6 +703,11 @@
                             e.preventDefault();
                             textBox.classList.add('editing');
                             textBox.contentEditable = true;
+                            
+                            // Reset to auto width when editing starts
+                            textBox.style.width = 'auto';
+                            textBox.style.height = 'auto';
+                            
                             textBox.focus();
                             
                             const range = document.createRange();
@@ -598,6 +738,9 @@
                     });
                     
                     textBox.addEventListener('input', function() {
+                        // Reset width to auto to fit text as user types
+                        textBox.style.width = 'auto';
+                        textBox.style.height = 'auto';
                         updateHTMLCode();
                     });
                     
@@ -605,6 +748,13 @@
                         textBox.classList.remove('editing');
                         textBox.contentEditable = false;
                         
+                        // Get text content excluding resize handles
+                        const textContent = Array.from(textBox.childNodes)
+                            .filter(node => !node.classList || !node.classList.contains('resize-handle'))
+                            .map(node => node.textContent)
+                            .join('');
+                        
+                        // Ensure resize handles still exist
                         const existingHandles = textBox.querySelectorAll('.resize-handle');
                         if (existingHandles.length < 4) {
                             existingHandles.forEach(h => h.remove());
@@ -622,26 +772,22 @@
                             });
                         }
                         
-                        const textContent = Array.from(textBox.childNodes)
-                            .filter(node => node.nodeType === Node.TEXT_NODE || (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('resize-handle')))
-                            .map(node => node.textContent)
-                            .join('');
-                        
                         if (textContent.trim() === '') {
                             Array.from(textBox.childNodes).forEach(node => {
                                 if (!node.classList || !node.classList.contains('resize-handle')) {
-                                    if (node.nodeType === Node.TEXT_NODE || node.nodeType === Node.ELEMENT_NODE) {
-                                        node.remove();
-                                    }
+                                    node.remove();
                                 }
                             });
                             const handles = textBox.querySelectorAll('.resize-handle');
                             if (handles.length > 0) {
                                 textBox.insertBefore(document.createTextNode('Double-click to edit'), handles[0]);
-                            } else {
-                                textBox.textContent = 'Double-click to edit';
                             }
                         }
+                        
+                        // Reset width to auto to fit text
+                        textBox.style.width = 'auto';
+                        textBox.style.height = 'auto';
+                        
                         updateHTMLCode();
                     });
                     
@@ -650,11 +796,13 @@
                 
                 // Update text content (preserve resize handles)
                 const handles = textBox.querySelectorAll('.resize-handle');
+                // Remove all non-handle nodes
                 Array.from(textBox.childNodes).forEach(node => {
                     if (!node.classList || !node.classList.contains('resize-handle')) {
                         node.remove();
                     }
                 });
+                // Add text before the first handle
                 if (handles.length > 0) {
                     textBox.insertBefore(document.createTextNode(textContent), handles[0]);
                 } else {
@@ -675,6 +823,15 @@
                     const fontFamily = fontFamilyMatch[1].trim();
                     textBox.style.fontFamily = fontFamily;
                     textBox.dataset.fontFamily = fontFamily;
+                }
+                if (outlineMatch) {
+                    const outlineColor = outlineMatch[1].trim();
+                    textBox.style.webkitTextStroke = `2px ${outlineColor}`;
+                    textBox.dataset.outlineEnabled = 'true';
+                    textBox.dataset.outlineColor = outlineColor;
+                } else {
+                    textBox.style.webkitTextStroke = '';
+                    textBox.dataset.outlineEnabled = 'false';
                 }
                 
                 // Check if gradient or solid color
@@ -780,7 +937,7 @@
             textBoxes.forEach((textBox, index) => {
                 // Get text content excluding resize handles
                 const textContent = Array.from(textBox.childNodes)
-                    .filter(node => node.nodeType === Node.TEXT_NODE || (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('resize-handle')))
+                    .filter(node => !node.classList || !node.classList.contains('resize-handle'))
                     .map(node => node.textContent)
                     .join('');
                 
@@ -792,6 +949,8 @@
                     const left = parseInt(textBox.style.left) || 0;
                     const hasGradient = textBox.dataset.gradientEnabled === 'true';
                     const fontFamily = textBox.dataset.fontFamily || 'Arial';
+                    const hasOutline = textBox.dataset.outlineEnabled === 'true';
+                    const outlineColor = textBox.dataset.outlineColor || '#000000';
                     
                     htmlContent += `        .text${index + 1} {
             font-size: ${fontSize}px;
@@ -800,6 +959,11 @@
             left: ${left}px;
             font-family: ${fontFamily};
 `;
+                    
+                    if (hasOutline) {
+                        htmlContent += `            -webkit-text-stroke: 2px ${outlineColor};
+`;
+                    }
                     
                     if (hasGradient) {
                         const color1 = textBox.dataset.gradientColor1 || '#000000';
@@ -840,7 +1004,7 @@
             textBoxes.forEach((textBox) => {
                 // Get text content excluding resize handles
                 const textContent = Array.from(textBox.childNodes)
-                    .filter(node => node.nodeType === Node.TEXT_NODE || (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('resize-handle')))
+                    .filter(node => !node.classList || !node.classList.contains('resize-handle'))
                     .map(node => node.textContent)
                     .join('');
                 
@@ -882,13 +1046,15 @@
             textBox.dataset.gradientColor2 = '#ff0000';
             textBox.dataset.gradientType = 'linear';
             textBox.dataset.fontFamily = 'Arial';
+            textBox.dataset.outlineEnabled = 'false';
+            textBox.dataset.outlineColor = '#000000';
 
             // Create resize handles
             const handles = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
             handles.forEach(position => {
                 const handle = document.createElement('div');
                 handle.className = `resize-handle ${position}`;
-                handle.contentEditable = 'false'; // Make handles non-editable
+                handle.contentEditable = 'false';
                 handle.addEventListener('mousedown', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -914,9 +1080,14 @@
                     e.preventDefault();
                     textBox.classList.add('editing');
                     textBox.contentEditable = true;
+                    
+                    // Reset to auto width when editing starts
+                    textBox.style.width = 'auto';
+                    textBox.style.height = 'auto';
+                    
                     textBox.focus();
                     
-                    // Select all text but exclude resize handles
+                    // Select all text excluding resize handles
                     const range = document.createRange();
                     const selection = window.getSelection();
                     selection.removeAllRanges();
@@ -949,6 +1120,9 @@
 
             // Update HTML code when typing
             textBox.addEventListener('input', function() {
+                // Reset width to auto to fit text as user types
+                textBox.style.width = 'auto';
+                textBox.style.height = 'auto';
                 updateHTMLCode();
             });
 
@@ -956,6 +1130,12 @@
             textBox.addEventListener('blur', function() {
                 textBox.classList.remove('editing');
                 textBox.contentEditable = false;
+                
+                // Get text content excluding resize handles
+                const textContent = Array.from(textBox.childNodes)
+                    .filter(node => !node.classList || !node.classList.contains('resize-handle'))
+                    .map(node => node.textContent)
+                    .join('');
                 
                 // Ensure resize handles still exist
                 const existingHandles = textBox.querySelectorAll('.resize-handle');
@@ -977,29 +1157,24 @@
                     });
                 }
                 
-                // Get text content excluding resize handles
-                const textContent = Array.from(textBox.childNodes)
-                    .filter(node => node.nodeType === Node.TEXT_NODE || (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('resize-handle')))
-                    .map(node => node.textContent)
-                    .join('');
-                
                 if (textContent.trim() === '') {
-                    // Clear text but keep handles
+                    // Clear all text nodes but keep handles
                     Array.from(textBox.childNodes).forEach(node => {
                         if (!node.classList || !node.classList.contains('resize-handle')) {
-                            if (node.nodeType === Node.TEXT_NODE || node.nodeType === Node.ELEMENT_NODE) {
-                                node.remove();
-                            }
+                            node.remove();
                         }
                     });
-                    // Add placeholder text at the beginning
+                    // Add placeholder at the beginning
                     const handles = textBox.querySelectorAll('.resize-handle');
                     if (handles.length > 0) {
                         textBox.insertBefore(document.createTextNode('Double-click to edit'), handles[0]);
-                    } else {
-                        textBox.textContent = 'Double-click to edit';
                     }
                 }
+                
+                // Reset width to auto to fit text
+                textBox.style.width = 'auto';
+                textBox.style.height = 'auto';
+                
                 updateHTMLCode();
             });
 
@@ -1029,6 +1204,26 @@
             // Update font selector
             const fontFamily = textBox.dataset.fontFamily || 'Arial';
             document.getElementById('fontSelect').value = fontFamily;
+            
+            // Update outline button and controls
+            const hasOutline = textBox.dataset.outlineEnabled === 'true';
+            const outlineColor = textBox.dataset.outlineColor || '#000000';
+            
+            const toggleOutlineButton = document.getElementById('toggleOutlineButton');
+            const outlineControls = document.getElementById('outlineControls');
+            
+            if (hasOutline) {
+                outlineEnabled = true;
+                toggleOutlineButton.textContent = '-';
+                outlineControls.classList.add('visible');
+                document.getElementById('outlineColorInput').value = outlineColor;
+            } else {
+                outlineEnabled = false;
+                toggleOutlineButton.textContent = 'O';
+                outlineControls.classList.remove('visible');
+            }
+            
+            updateOutlineColorCircle();
             
             // Update gradient button and controls
             const toggleButton = document.getElementById('toggleGradientButton');
