@@ -37,12 +37,41 @@
             padding: 20px;
             display: flex;
             transition: width 0.3s ease;
+            position: relative;
+            flex-direction: column;
+        }
+
+        .copy-button {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            background-color: white;
+            border: 1px solid #ddd;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            color: black;
+            z-index: 10;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        .copy-button:hover {
+            background-color: #f0f0f0;
+        }
+
+        .copy-button:active {
+            background-color: #e0e0e0;
         }
 
         .right-section.hidden {
             width: 0;
             padding: 0;
             overflow: hidden;
+        }
+
+        .right-section.hidden .copy-button {
+            display: none;
         }
 
         .toggle-button {
@@ -218,6 +247,7 @@
             background-color: #f5f5f5;
             border: 2px solid #666;
             position: relative;
+            pointer-events: none;
         }
 
         .compass-line {
@@ -230,6 +260,8 @@
             transform-origin: bottom center;
             transform: translate(-50%, -100%) rotate(90deg);
             cursor: grab;
+            pointer-events: auto;
+            z-index: 10;
         }
 
         .compass-line:active {
@@ -246,6 +278,7 @@
             border-left: 5px solid transparent;
             border-right: 5px solid transparent;
             border-bottom: 8px solid #333;
+            pointer-events: none;
         }
 
         .font-select {
@@ -315,6 +348,38 @@
             display: flex;
         }
 
+        .transparency-slider {
+            width: 100px;
+            height: 6px;
+            border-radius: 3px;
+            background: linear-gradient(to right, transparent, #000);
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .transparency-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #4a90e2;
+            border: 2px solid white;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .transparency-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #4a90e2;
+            border: 2px solid white;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
         .draggable-text {
             position: absolute;
             padding: 5px 10px;
@@ -331,8 +396,8 @@
         }
 
         .draggable-text.selected {
-            border: 2px solid #007bff;
-            background-color: rgba(0, 123, 255, 0.1);
+            border: 2px solid #007bff !important;
+            background-color: rgba(0, 123, 255, 0.1) !important;
         }
 
         .draggable-text.editing {
@@ -350,6 +415,7 @@
             z-index: 100;
             border-radius: 2px;
             user-select: none;
+            opacity: 1 !important;
         }
 
         .draggable-text.selected .resize-handle {
@@ -424,7 +490,7 @@
                     <option value="radial">radial</option>
                 </select>
                 
-                <button class="gradient-direction-button" id="gradientDirectionButton" onclick="toggleCompass()">
+                <button class="gradient-direction-button" id="gradientDirectionButton" onclick="toggleCompass(event)">
                     D
                     <div class="compass-popup" id="compassPopup">
                         <div class="compass-circle">
@@ -453,9 +519,12 @@
                 </button>
                 <input type="color" class="color-input" id="outlineColorInput" value="#000000">
             </div>
+            
+            <input type="range" class="transparency-slider" id="transparencySlider" min="0" max="1" step="0.01" value="1">
         </div>
     </div>
     <div class="right-section" id="rightSection">
+        <button class="copy-button" onclick="copyCode()">Copy</button>
         <textarea placeholder="Write or design"></textarea>
     </div>
 
@@ -517,6 +586,7 @@
             const color1 = document.getElementById('colorInput').value;
             const color2 = document.getElementById('gradientColorInput').value;
             const gradientType = document.getElementById('gradientTypeSelect').value;
+            const opacity = parseFloat(selectedTextBox.dataset.opacity || '1');
             
             selectedTextBox.dataset.gradientEnabled = 'true';
             selectedTextBox.dataset.gradientColor1 = color1;
@@ -527,12 +597,16 @@
             // Remove any existing color
             selectedTextBox.style.color = '';
             
+            // Convert colors to rgba with opacity
+            const rgba1 = hexToRgba(color1, opacity);
+            const rgba2 = hexToRgba(color2, opacity);
+            
             // Set gradient background
             if (gradientType === 'linear') {
-                selectedTextBox.style.background = `linear-gradient(${gradientAngle}deg, ${color1}, ${color2})`;
+                selectedTextBox.style.background = `linear-gradient(${gradientAngle}deg, ${rgba1}, ${rgba2})`;
             } else {
                 // Use farthest-corner to ensure gradient is always visible
-                selectedTextBox.style.background = `radial-gradient(circle farthest-corner at center, ${color1} 0%, ${color2} 100%)`;
+                selectedTextBox.style.background = `radial-gradient(circle farthest-corner at center, ${rgba1} 0%, ${rgba2} 100%)`;
             }
             
             // Set clip properties
@@ -583,7 +657,8 @@
         let gradientAngle = 90; // Default angle for linear gradient (left to right)
         let isDraggingCompass = false;
 
-        function toggleCompass() {
+        function toggleCompass(e) {
+            if (e) e.stopPropagation();
             const compassPopup = document.getElementById('compassPopup');
             compassPopup.classList.toggle('visible');
         }
@@ -592,54 +667,61 @@
         document.addEventListener('click', function(e) {
             const compassPopup = document.getElementById('compassPopup');
             const directionButton = document.getElementById('gradientDirectionButton');
+            const compassLine = document.getElementById('compassLine');
             
-            if (!directionButton.contains(e.target) && compassPopup.classList.contains('visible')) {
+            if (!directionButton.contains(e.target) && 
+                !compassLine.contains(e.target) && 
+                compassPopup.classList.contains('visible')) {
                 compassPopup.classList.remove('visible');
             }
         });
 
-        // Compass line dragging
-        const compassLine = document.getElementById('compassLine');
-        const compassCircle = compassLine.parentElement;
+        // Compass line dragging - set up after DOM loads
+        window.addEventListener('load', function() {
+            const compassLine = document.getElementById('compassLine');
+            const compassCircle = compassLine.parentElement;
 
-        compassLine.addEventListener('mousedown', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            isDraggingCompass = true;
-        });
+            compassLine.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                isDraggingCompass = true;
+                compassLine.style.cursor = 'grabbing';
+            });
 
-        document.addEventListener('mousemove', function(e) {
-            if (!isDraggingCompass) return;
-            
-            const rect = compassCircle.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            
-            const deltaX = e.clientX - centerX;
-            const deltaY = e.clientY - centerY;
-            
-            // Calculate angle in degrees (0 = right, 90 = down, 180 = left, 270 = up)
-            let angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
-            
-            // Convert to CSS gradient angle (0 = up, 90 = right, 180 = down, 270 = left)
-            angle = angle + 90;
-            if (angle < 0) angle += 360;
-            
-            gradientAngle = Math.round(angle);
-            
-            // Update compass line rotation
-            compassLine.style.transform = `translate(-50%, -100%) rotate(${gradientAngle}deg)`;
-            
-            // Update gradient
-            if (selectedTextBox && gradientEnabled) {
-                applyGradient();
-            }
-        });
+            document.addEventListener('mousemove', function(e) {
+                if (!isDraggingCompass) return;
+                
+                const rect = compassCircle.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                
+                const deltaX = e.clientX - centerX;
+                const deltaY = e.clientY - centerY;
+                
+                // Calculate angle in degrees (0 = right, 90 = down, 180 = left, 270 = up)
+                let angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
+                
+                // Convert to CSS gradient angle (0 = up, 90 = right, 180 = down, 270 = left)
+                angle = angle + 90;
+                if (angle < 0) angle += 360;
+                
+                gradientAngle = Math.round(angle);
+                
+                // Update compass line rotation
+                compassLine.style.transform = `translate(-50%, -100%) rotate(${gradientAngle}deg)`;
+                
+                // Update gradient
+                if (selectedTextBox && gradientEnabled) {
+                    applyGradient();
+                }
+            });
 
-        document.addEventListener('mouseup', function() {
-            if (isDraggingCompass) {
-                isDraggingCompass = false;
-            }
+            document.addEventListener('mouseup', function() {
+                if (isDraggingCompass) {
+                    isDraggingCompass = false;
+                    compassLine.style.cursor = 'grab';
+                }
+            });
         });
 
         function toggleOutline() {
@@ -711,6 +793,73 @@
             }
         }
 
+        // Listen for transparency slider changes
+        document.getElementById('transparencySlider').addEventListener('input', function(e) {
+            const opacity = parseFloat(e.target.value);
+            if (selectedTextBox) {
+                selectedTextBox.dataset.opacity = opacity;
+                
+                // Apply opacity to the text color/gradient, not the box
+                const hasGradient = selectedTextBox.dataset.gradientEnabled === 'true';
+                
+                if (hasGradient) {
+                    // Reapply gradient with new opacity
+                    applyGradient();
+                } else {
+                    // Apply opacity to solid color
+                    const solidColor = selectedTextBox.dataset.solidColor || '#000000';
+                    const rgbaColor = hexToRgba(solidColor, opacity);
+                    selectedTextBox.style.color = rgbaColor;
+                }
+                
+                updateHTMLCode();
+            }
+        });
+
+        // Helper function to convert hex to rgba
+        function hexToRgba(hex, alpha) {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        // Helper function for HTML generation (returns rgba string)
+        function hexToRgbaString(hex, alphaStr) {
+            const alpha = parseFloat(alphaStr);
+            if (alpha === 1) {
+                return hex; // Return hex if fully opaque
+            }
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        // Copy code to clipboard
+        function copyCode() {
+            const textarea = document.querySelector('textarea');
+            textarea.select();
+            textarea.setSelectionRange(0, 99999); // For mobile devices
+            
+            navigator.clipboard.writeText(textarea.value).then(function() {
+                // Visual feedback
+                const copyButton = document.querySelector('.copy-button');
+                const originalText = copyButton.textContent;
+                copyButton.textContent = 'Copied!';
+                copyButton.style.backgroundColor = '#4CAF50';
+                copyButton.style.color = 'white';
+                
+                setTimeout(function() {
+                    copyButton.textContent = originalText;
+                    copyButton.style.backgroundColor = '';
+                    copyButton.style.color = '';
+                }, 2000);
+            }).catch(function(err) {
+                console.error('Failed to copy:', err);
+            });
+        }
+
         function openColorPicker() {
             const colorInput = document.getElementById('colorInput');
             colorInput.click();
@@ -752,10 +901,14 @@
                 selectedTextBox.dataset.solidColor = newColor;
                 selectedTextBox.dataset.gradientColor1 = newColor;
                 
+                const opacity = parseFloat(selectedTextBox.dataset.opacity || '1');
+                
                 if (gradientEnabled && selectedTextBox.dataset.gradientEnabled === 'true') {
                     applyGradient();
                 } else {
-                    selectedTextBox.style.color = newColor;
+                    // Apply color with opacity
+                    const rgbaColor = hexToRgba(newColor, opacity);
+                    selectedTextBox.style.color = rgbaColor;
                     // Clear any gradient properties
                     selectedTextBox.style.background = '';
                     selectedTextBox.style.webkitBackgroundClip = '';
@@ -808,6 +961,8 @@
                 const webkitTextFillMatch = styles.match(/-webkit-text-fill-color:\s*transparent/);
                 const fontFamilyMatch = styles.match(/font-family:\s*([^;]+);/);
                 const outlineMatch = styles.match(/-webkit-text-stroke:\s*2px\s*([^;]+);/);
+                const opacityMatch = styles.match(/opacity:\s*([0-9.]+);/);
+                const transformMatch = styles.match(/transform:\s*translate\(-50%,\s*-50%\);/);
                 
                 let textBox;
                 if (existingTextBoxes[index]) {
@@ -827,6 +982,7 @@
                     textBox.dataset.fontFamily = 'Arial';
                     textBox.dataset.outlineEnabled = 'false';
                     textBox.dataset.outlineColor = '#000000';
+                    textBox.dataset.opacity = '1';
                     
                     // Add resize handles
                     const handles = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
@@ -968,11 +1124,16 @@
                 if (fontSizeMatch) {
                     textBox.style.fontSize = fontSizeMatch[1] + 'px';
                 }
+                
+                // Store raw position values
+                let posTop = topMatch ? parseInt(topMatch[1]) : 0;
+                let posLeft = leftMatch ? parseInt(leftMatch[1]) : 0;
+                
                 if (topMatch) {
-                    textBox.style.top = topMatch[1] + 'px';
+                    textBox.style.top = posTop + 'px';
                 }
                 if (leftMatch) {
-                    textBox.style.left = leftMatch[1] + 'px';
+                    textBox.style.left = posLeft + 'px';
                 }
                 if (fontFamilyMatch) {
                     const fontFamily = fontFamilyMatch[1].trim();
@@ -988,6 +1149,12 @@
                     textBox.style.webkitTextStroke = '';
                     textBox.dataset.outlineEnabled = 'false';
                 }
+                if (opacityMatch) {
+                    const opacity = opacityMatch[1];
+                    textBox.dataset.opacity = opacity;
+                } else {
+                    textBox.dataset.opacity = '1';
+                }
                 
                 // Check if gradient or solid color
                 if (backgroundMatch && webkitBgClipMatch && webkitTextFillMatch) {
@@ -998,10 +1165,11 @@
                     let gradientType = 'linear';
                     let colors = [];
                     let angle = 90;
+                    let opacity = '1';
                     
                     if (background.includes('linear-gradient')) {
                         gradientType = 'linear';
-                        const colorMatches = background.match(/#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|rgb\([^)]+\)/g);
+                        const colorMatches = background.match(/#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|rgba?\([^)]+\)/g);
                         if (colorMatches) colors = colorMatches;
                         
                         // Parse angle
@@ -1011,18 +1179,54 @@
                         }
                     } else if (background.includes('radial-gradient')) {
                         gradientType = 'radial';
-                        const colorMatches = background.match(/#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|rgb\([^)]+\)/g);
+                        const colorMatches = background.match(/#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|rgba?\([^)]+\)/g);
                         if (colorMatches) colors = colorMatches;
+                    }
+                    
+                    // Parse colors and extract opacity if present
+                    let hexColor1 = '#000000';
+                    let hexColor2 = '#ff0000';
+                    
+                    if (colors[0]) {
+                        const rgba1Match = colors[0].match(/rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([0-9.]+)\s*\)/);
+                        if (rgba1Match) {
+                            const r = rgba1Match[1];
+                            const g = rgba1Match[2];
+                            const b = rgba1Match[3];
+                            opacity = rgba1Match[4];
+                            hexColor1 = '#' + 
+                                parseInt(r).toString(16).padStart(2, '0') +
+                                parseInt(g).toString(16).padStart(2, '0') +
+                                parseInt(b).toString(16).padStart(2, '0');
+                        } else {
+                            hexColor1 = colors[0];
+                        }
+                    }
+                    
+                    if (colors[1]) {
+                        const rgba2Match = colors[1].match(/rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([0-9.]+)\s*\)/);
+                        if (rgba2Match) {
+                            const r = rgba2Match[1];
+                            const g = rgba2Match[2];
+                            const b = rgba2Match[3];
+                            hexColor2 = '#' + 
+                                parseInt(r).toString(16).padStart(2, '0') +
+                                parseInt(g).toString(16).padStart(2, '0') +
+                                parseInt(b).toString(16).padStart(2, '0');
+                        } else {
+                            hexColor2 = colors[1];
+                        }
                     }
                     
                     textBox.dataset.gradientEnabled = 'true';
                     textBox.dataset.gradientType = gradientType;
-                    textBox.dataset.gradientColor1 = colors[0] || '#000000';
-                    textBox.dataset.gradientColor2 = colors[1] || '#ff0000';
+                    textBox.dataset.gradientColor1 = hexColor1;
+                    textBox.dataset.gradientColor2 = hexColor2;
                     textBox.dataset.gradientAngle = angle.toString();
-                    textBox.dataset.solidColor = colors[0] || '#000000';
+                    textBox.dataset.opacity = opacity;
+                    textBox.dataset.solidColor = hexColor1;
                     
-                    // Apply gradient visually with updated format
+                    // Apply gradient visually with the original colors (which include alpha if present)
                     if (gradientType === 'linear') {
                         textBox.style.background = `linear-gradient(${angle}deg, ${colors[0] || '#000000'}, ${colors[1] || '#ff0000'})`;
                     } else {
@@ -1036,14 +1240,49 @@
                 } else if (colorMatch) {
                     // It's a solid color
                     const color = colorMatch[1].trim();
+                    
+                    // Check if it's rgba and extract opacity
+                    const rgbaMatch = color.match(/rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([0-9.]+)\s*\)/);
+                    if (rgbaMatch) {
+                        const r = rgbaMatch[1];
+                        const g = rgbaMatch[2];
+                        const b = rgbaMatch[3];
+                        const alpha = rgbaMatch[4];
+                        
+                        // Convert back to hex for storage
+                        const hex = '#' + 
+                            parseInt(r).toString(16).padStart(2, '0') +
+                            parseInt(g).toString(16).padStart(2, '0') +
+                            parseInt(b).toString(16).padStart(2, '0');
+                        
+                        textBox.dataset.solidColor = hex;
+                        textBox.dataset.gradientColor1 = hex;
+                        textBox.dataset.opacity = alpha;
+                    } else {
+                        // Plain hex or color name
+                        textBox.dataset.solidColor = color;
+                        textBox.dataset.gradientColor1 = color;
+                        textBox.dataset.opacity = '1';
+                    }
+                    
                     textBox.dataset.gradientEnabled = 'false';
-                    textBox.dataset.solidColor = color;
-                    textBox.dataset.gradientColor1 = color;
-                    textBox.style.color = color;
+                    textBox.style.color = color; // Apply the color as-is (with alpha if present)
                     textBox.style.background = '';
                     textBox.style.webkitBackgroundClip = '';
                     textBox.style.webkitTextFillColor = '';
                     textBox.style.backgroundClip = '';
+                }
+                
+                // Adjust position if text was centered (has transform translate)
+                if (transformMatch) {
+                    // The parsed position is the center point, convert to top-left for editor
+                    // Need to wait for next frame so textBox dimensions are calculated
+                    setTimeout(() => {
+                        const width = textBox.offsetWidth;
+                        const height = textBox.offsetHeight;
+                        textBox.style.left = (posLeft - width / 2) + 'px';
+                        textBox.style.top = (posTop - height / 2) + 'px';
+                    }, 0);
                 }
             });
             
@@ -1110,16 +1349,25 @@
                     const fontSize = parseInt(textBox.style.fontSize) || 16;
                     const top = parseInt(textBox.style.top) || 0;
                     const left = parseInt(textBox.style.left) || 0;
+                    
+                    // Calculate center position
+                    const width = textBox.offsetWidth;
+                    const height = textBox.offsetHeight;
+                    const centerX = left + width / 2;
+                    const centerY = top + height / 2;
+                    
                     const hasGradient = textBox.dataset.gradientEnabled === 'true';
                     const fontFamily = textBox.dataset.fontFamily || 'Arial';
                     const hasOutline = textBox.dataset.outlineEnabled === 'true';
                     const outlineColor = textBox.dataset.outlineColor || '#000000';
+                    const opacity = textBox.dataset.opacity || '1';
                     
                     htmlContent += `        .text${index + 1} {
             font-size: ${fontSize}px;
             position: absolute;
-            top: ${top}px;
-            left: ${left}px;
+            left: ${centerX}px;
+            top: ${centerY}px;
+            transform: translate(-50%, -50%);
             font-family: ${fontFamily};
 `;
                     
@@ -1134,14 +1382,18 @@
                         const gradientType = textBox.dataset.gradientType || 'linear';
                         const angle = textBox.dataset.gradientAngle || '90';
                         
+                        // Convert colors to rgba with opacity
+                        const rgba1 = hexToRgbaString(color1, opacity);
+                        const rgba2 = hexToRgbaString(color2, opacity);
+                        
                         if (gradientType === 'linear') {
-                            htmlContent += `            background: linear-gradient(${angle}deg, ${color1}, ${color2});
+                            htmlContent += `            background: linear-gradient(${angle}deg, ${rgba1}, ${rgba2});
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
 `;
                         } else {
-                            htmlContent += `            background: radial-gradient(circle farthest-corner at center, ${color1} 0%, ${color2} 100%);
+                            htmlContent += `            background: radial-gradient(circle farthest-corner at center, ${rgba1} 0%, ${rgba2} 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -1149,7 +1401,9 @@
                         }
                     } else {
                         const color = textBox.dataset.solidColor || '#000000';
-                        htmlContent += `            color: ${color};
+                        // Convert to rgba with opacity
+                        const rgba = hexToRgbaString(color, opacity);
+                        htmlContent += `            color: ${rgba};
 `;
                     }
                     
@@ -1213,6 +1467,7 @@
             textBox.dataset.fontFamily = 'Arial';
             textBox.dataset.outlineEnabled = 'false';
             textBox.dataset.outlineColor = '#000000';
+            textBox.dataset.opacity = '1';
 
             // Create resize handles
             const handles = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
@@ -1389,6 +1644,10 @@
             }
             
             updateOutlineColorCircle();
+            
+            // Update transparency slider
+            const opacity = textBox.dataset.opacity || '1';
+            document.getElementById('transparencySlider').value = opacity;
             
             // Update gradient button and controls
             const toggleButton = document.getElementById('toggleGradientButton');
