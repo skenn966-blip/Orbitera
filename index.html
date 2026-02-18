@@ -551,7 +551,7 @@
             font-size: 16px;
             color: #000000;
             display: inline-block;
-            font-weight: bold;
+            font-weight: normal;
             font-family: Arial;
             width: fit-content;
             max-width: 100%;
@@ -1298,7 +1298,6 @@
                 const fontFamilyMatch = styles.match(/font-family:\s*([^;]+);/);
                 const outlineMatch = styles.match(/-webkit-text-stroke:\s*2px\s*([^;]+);/);
                 const opacityMatch = styles.match(/opacity:\s*([0-9.]+);/);
-                const transformMatch = styles.match(/transform:\s*translate\(-50%,\s*-50%\);/);
                 const shadowMatch = styles.match(/text-shadow:\s*([^;]+);/);
                 const fontWeightMatch = styles.match(/font-weight:\s*(bold|normal);/);
                 
@@ -1310,6 +1309,7 @@
                     textBox = document.createElement('div');
                     textBox.className = 'draggable-text';
                     textBox.contentEditable = false;
+                    textBox.style.fontWeight = 'normal';
                     textBox.dataset.baseFontSize = '16';
                     textBox.dataset.solidColor = '#000000';
                     textBox.dataset.gradientEnabled = 'false';
@@ -1467,16 +1467,11 @@
                 if (fontSizeMatch) {
                     textBox.style.fontSize = fontSizeMatch[1] + 'px';
                 }
-                
-                // Store raw position values
-                let posTop = topMatch ? parseInt(topMatch[1]) : 0;
-                let posLeft = leftMatch ? parseInt(leftMatch[1]) : 0;
-                
                 if (topMatch) {
-                    textBox.style.top = posTop + 'px';
+                    textBox.style.top = topMatch[1] + 'px';
                 }
                 if (leftMatch) {
-                    textBox.style.left = posLeft + 'px';
+                    textBox.style.left = leftMatch[1] + 'px';
                 }
                 if (fontFamilyMatch) {
                     const fontFamily = fontFamilyMatch[1].trim();
@@ -1652,18 +1647,6 @@
                     textBox.style.webkitTextFillColor = '';
                     textBox.style.backgroundClip = '';
                 }
-                
-                // Adjust position if text was centered (has transform translate)
-                if (transformMatch) {
-                    // The parsed position is the center point, convert to top-left for editor
-                    // Need to wait for next frame so textBox dimensions are calculated
-                    setTimeout(() => {
-                        const width = textBox.offsetWidth;
-                        const height = textBox.offsetHeight;
-                        textBox.style.left = (posLeft - width / 2) + 'px';
-                        textBox.style.top = (posTop - height / 2) + 'px';
-                    }, 0);
-                }
             });
             
             // Remove extra text boxes if there are more than in the code
@@ -1730,12 +1713,6 @@
                     const top = parseInt(textBox.style.top) || 0;
                     const left = parseInt(textBox.style.left) || 0;
                     
-                    // Calculate center position
-                    const width = textBox.offsetWidth;
-                    const height = textBox.offsetHeight;
-                    const centerX = left + width / 2;
-                    const centerY = top + height / 2;
-                    
                     const hasGradient = textBox.dataset.gradientEnabled === 'true';
                     const fontFamily = textBox.dataset.fontFamily || 'Arial';
                     const hasOutline = textBox.dataset.outlineEnabled === 'true';
@@ -1747,9 +1724,8 @@
                     htmlContent += `        .text${index + 1} {
             font-size: ${fontSize}px;
             position: absolute;
-            left: ${centerX}px;
-            top: ${centerY}px;
-            transform: translate(-50%, -50%);
+            top: ${top}px;
+            left: ${left}px;
             font-family: ${fontFamily};
 `;
                     
@@ -1857,6 +1833,7 @@
             textBox.style.fontSize = '16px';
             textBox.style.color = '#000000';
             textBox.style.fontFamily = 'Arial';
+            textBox.style.fontWeight = 'normal';
             textBox.dataset.baseFontSize = '16';
             textBox.dataset.solidColor = '#000000';
             textBox.dataset.gradientEnabled = 'false';
